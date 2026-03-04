@@ -113,7 +113,7 @@
                 </div>
                 <div class="flex space-x-2 shrink-0 w-full sm:w-auto">
                     <!-- MANUAL SYNC BUTTON -->
-                    <button id="saveBtn" onclick="window.syncToCloud()" class="flex-1 bg-red-600 text-white text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-red-500 transition-all opacity-50 cursor-not-allowed" disabled>
+                    <button id="saveBtn" onclick="window.syncToCloud()" class="flex-1 bg-red-600 text-white text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-red-500 transition-all opacity-50 cursor-not-allowed" disabled title="Enter a Sync Key to enable Cloud saving">
                         <i class="fas fa-save mr-1"></i> Sync to Cloud
                     </button>
                     <button onclick="window.generateExportReport()" class="flex-1 bg-white text-black text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-gray-200 transition-colors">
@@ -261,7 +261,6 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Your verified Firebase Config
         const manualFirebaseConfig = {
             apiKey: "AIzaSyAHh4H1KwrjPkmxGFu3lFevcBHTpukUaYk",
             authDomain: "predictions-7dca9.firebaseapp.com",
@@ -291,7 +290,6 @@
             isCloudActive = true;
         }
 
-        // Updated Driver List based on 2026 Season Grid Image
         const drivers = [
             { id: "gas", name: "Pierre Gasly", team: "Alpine", flag: "🇫🇷" },
             { id: "col", name: "Franco Colapinto", team: "Alpine", flag: "🇦🇷" },
@@ -350,13 +348,18 @@
         let currentUser = null;
         let unsubscribePreds = null;
         let unsubscribeResults = null;
+        let isSyncInProgress = false; // Flag to prevent UI overrides during sync
 
         const updateSyncUI = (status, text) => {
             const spinner = document.getElementById('cloudSpinner');
             const label = document.getElementById('syncText');
             const saveBtn = document.getElementById('saveBtn');
             if (!label) return;
-            label.textContent = text;
+            
+            // Do not update the status text if we are currently performing a manual save
+            if (!isSyncInProgress) {
+                label.textContent = text;
+            }
 
             if (status === 'loading') { 
                 spinner?.classList.remove('hidden'); 
@@ -364,14 +367,14 @@
             } else if (status === 'success') { 
                 spinner?.classList.add('hidden'); 
                 label.className = "text-[8px] text-green-500 uppercase font-bold"; 
-                if (saveBtn) {
+                if (saveBtn && !isSyncInProgress) {
                     saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
                     saveBtn.disabled = false;
                 }
             } else { 
                 spinner?.classList.add('hidden'); 
                 label.className = "text-[8px] text-red-500 uppercase font-bold"; 
-                if (saveBtn) {
+                if (saveBtn && !isSyncInProgress) {
                     saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
                     saveBtn.disabled = true;
                 }
@@ -447,25 +450,46 @@
             if (!key || !isCloudActive || !currentUser) return;
 
             const btn = document.getElementById('saveBtn');
-            const originalText = btn.innerHTML;
+            const originalTextContent = `<i class="fas fa-save mr-1"></i> Sync to Cloud`;
+            
+            isSyncInProgress = true;
             btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Syncing...`;
             btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
 
             try {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
+                // Save both sets of data in parallel
+                const savePreds = setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
+                const saveResults = setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
+                
+                await Promise.all([savePreds, saveResults]);
                 
                 btn.innerHTML = `<i class="fas fa-check mr-1"></i> Data Saved`;
+                btn.classList.remove('bg-red-600');
+                btn.classList.add('bg-green-600');
+
+                // Success feedback
                 setTimeout(() => {
-                    btn.innerHTML = originalText;
+                    btn.classList.remove('bg-green-600');
+                    btn.classList.add('bg-red-600');
+                    btn.innerHTML = originalTextContent;
                     btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    isSyncInProgress = false;
                 }, 2000);
             } catch (err) {
-                console.error(err);
-                btn.innerHTML = `<i class="fas fa-exclamation-triangle mr-1"></i> Failed`;
+                console.error("Manual Sync Error:", err);
+                btn.innerHTML = `<i class="fas fa-exclamation-triangle mr-1"></i> Sync Failed`;
+                btn.classList.remove('bg-red-600');
+                btn.classList.add('bg-orange-600');
+                
                 setTimeout(() => {
-                    btn.innerHTML = originalText;
+                    btn.classList.remove('bg-orange-600');
+                    btn.classList.add('bg-red-600');
+                    btn.innerHTML = originalTextContent;
                     btn.disabled = false;
+                    btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    isSyncInProgress = false;
                 }, 3000);
             }
         };
@@ -698,7 +722,7 @@
                             <div id="wrapper-${p}-${d.id}" class="flex items-center space-x-3 text-xs bg-[#15151e] p-3 rounded-lg border border-gray-800 transition-all hover:border-gray-600">
                                 <input type="checkbox" id="${p}-other-${d.id}" onchange="window.handleCheckboxChange('${p}', '${d.id}')" class="accent-red-500 w-4 h-4 cursor-pointer">
                                 <label for="${p}-other-${d.id}" class="truncate w-full cursor-pointer select-none">${d.name}</label>
-                            </div>`;
+</div>`;
                     });
                 }
             });
