@@ -197,7 +197,7 @@
                             <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
                                 <i class="fas fa-trophy mr-2"></i> Results
                             </h3>
-                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
+                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
                         </div>
                         <div class="space-y-4">
                             <div>
@@ -366,11 +366,14 @@
             if (unsubscribePreds) unsubscribePreds();
             if (unsubscribeResults) unsubscribeResults();
 
-            // If no key is entered, stay in blank "Local Mode" and do not fetch any default cloud data
+            // CRITICAL: Immediately wipe all data from memory when switching keys.
+            // This ensures if a key doesn't exist, the UI will be blank.
+            userPredictions = {};
+            raceResults = {};
+            refreshUI();
+
+            // If no key is entered, stay in blank state and do not fetch cloud data
             if (!syncKey) {
-                userPredictions = {};
-                raceResults = {};
-                refreshUI();
                 updateSyncUI('success', 'Local Session');
                 return;
             }
@@ -384,9 +387,14 @@
             
             try {
                 unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', syncKey), (ds) => {
-                    if (ds.exists()) userPredictions = ds.data();
-                    else userPredictions = {}; // Key exists but has no data yet
-                    refreshUI();
+                    // If doc exists, load it. If not, it remains wiped (blank) from the setup above.
+                    if (ds.exists()) {
+                        userPredictions = ds.data();
+                        refreshUI();
+                    } else {
+                        userPredictions = {};
+                        refreshUI();
+                    }
                     updateSyncUI('success', 'Sync: ' + syncKey);
                 }, (err) => {
                     console.warn('Sync Error:', err);
@@ -394,9 +402,13 @@
                 });
 
                 unsubscribeResults = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', syncKey), (ds) => {
-                    if (ds.exists()) raceResults = ds.data();
-                    else raceResults = {};
-                    refreshUI();
+                    if (ds.exists()) {
+                        raceResults = ds.data();
+                        refreshUI();
+                    } else {
+                        raceResults = {};
+                        refreshUI();
+                    }
                 });
             } catch (e) {
                 console.error('Session setup error:', e);
@@ -591,8 +603,7 @@
         };
 
         window.generateExportReport = () => {
-            let scoreText = document.getElementById('totalScore')?.textContent || "0/0";
-            let report = `F1 2026 SEASON PREDICTION REPORT\nGenerated: ${new Date().toLocaleString()}\nSeason Points: ${scoreText}\n\n`;
+            let report = `F1 2026 SEASON PREDICTION REPORT\nGenerated: ${new Date().toLocaleString()}\n\n`;
             races.forEach(r => {
                 const p = userPredictions[r.id]; 
                 const res = raceResults[r.id];
@@ -674,7 +685,7 @@
                         updateSyncUI('error', 'Sync Blocked');
                     }
                 } else {
-                    // Force the session to start as blank (null key) on load
+                    // Force the session to start as blank on load
                     setupListeners(null);
                 }
             });
