@@ -41,11 +41,12 @@
         .race-card {
             transition: all 0.2s ease;
             box-sizing: border-box;
+            border: 1px solid #374151;
         }
         
         .race-card-selected {
             border-color: var(--f1-red) !important;
-            box-shadow: inset 0 0 0 1px var(--f1-red);
+            box-shadow: 0 0 0 1px var(--f1-red);
         }
 
         .hidden-driver {
@@ -68,7 +69,8 @@
         }
 
         .italic-fix {
-            padding-right: 0.25em;
+            padding-right: 0.5rem;
+            display: inline-block;
         }
     </style>
 </head>
@@ -77,14 +79,14 @@
     <header class="bg-[#15151e] shadow-xl sticky top-0 z-40 border-b border-gray-800">
         <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col items-center gap-4">
             
-            <div class="flex items-center justify-between w-full">
-                <div class="flex items-center space-x-3">
+            <div class="flex items-center justify-between w-full gap-2">
+                <div class="flex items-center space-x-3 overflow-hidden">
                     <div class="shrink-0 h-5 sm:h-7">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/960px-F1.svg.png" 
                              alt="F1 Logo" 
                              class="h-full w-auto object-contain">
                     </div>
-                    <div>
+                    <div class="overflow-hidden">
                         <h1 class="text-lg sm:text-xl font-bold uppercase italic tracking-tighter italic-fix whitespace-nowrap">
                             2026 Prediction Hub
                         </h1>
@@ -95,7 +97,7 @@
                     </div>
                 </div>
 
-                <div class="text-right">
+                <div class="text-right shrink-0">
                     <p class="text-[9px] text-gray-400 uppercase tracking-widest">Season Points</p>
                     <p id="totalScore" class="text-xl sm:text-2xl font-black text-red-500">0/0</p>
                 </div>
@@ -109,8 +111,8 @@
                            class="bg-transparent border-none text-[10px] text-white focus:outline-none w-full uppercase tracking-widest font-bold"
                            onchange="window.handleSyncKeyChange()">
                 </div>
-                <div class="flex space-x-2 shrink-0">
-                    <button onclick="window.generateExportReport()" class="bg-white text-black text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-gray-200 transition-colors">
+                <div class="flex space-x-2 shrink-0 w-full sm:w-auto">
+                    <button onclick="window.generateExportReport()" class="flex-1 bg-white text-black text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-gray-200 transition-colors">
                         <i class="fas fa-file-export mr-1"></i> Export
                     </button>
                     <button onclick="window.showResetModal()" class="text-[10px] text-gray-400 hover:text-red-500 uppercase transition-colors px-2">
@@ -121,13 +123,11 @@
         </div>
     </header>
 
-    <main class="max-w-6xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <main class="max-w-6xl mx-auto px-5 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         <!-- Sidebar: Race List -->
         <div class="lg:col-span-4 space-y-4">
             <h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2 px-1">Official 2026 Calendar</h2>
-            <div id="raceList" class="space-y-3 max-h-[40vh] lg:max-h-[calc(100vh-220px)] overflow-y-auto custom-scrollbar pr-1">
-                <!-- Races injected here -->
-            </div>
+            <div id="raceList" class="space-y-4 max-h-[40vh] lg:max-h-[calc(100vh-220px)] overflow-y-auto custom-scrollbar px-1"></div>
         </div>
 
         <!-- Main Workspace -->
@@ -144,12 +144,12 @@
                 <!-- Race Header Card -->
                 <div class="bg-[#1f1f27] p-6 rounded-2xl border border-gray-800 f1-border-bottom shadow-xl relative overflow-hidden">
                     <div class="flex justify-between items-start relative z-10">
-                        <div>
+                        <div class="overflow-hidden">
                             <span id="raceDate" class="text-red-500 text-[10px] font-bold uppercase tracking-widest mb-1 block"></span>
                             <h2 id="raceTitle" class="text-3xl font-black uppercase italic tracking-tighter leading-tight italic-fix"></h2>
                             <p id="raceCircuit" class="text-gray-400 text-xs mt-1"></p>
                         </div>
-                        <div class="text-right">
+                        <div class="text-right shrink-0">
                             <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Round Pts</span>
                             <p id="raceScore" class="text-4xl font-black text-white">0</p>
                         </div>
@@ -157,7 +157,7 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Predictions Column -->
+                    <!-- Predictions -->
                     <div class="bg-[#1f1f27] p-5 rounded-2xl border border-gray-800 shadow-lg">
                         <div class="flex justify-between items-center mb-5">
                             <h3 class="font-bold text-base uppercase flex items-center">
@@ -165,13 +165,11 @@
                             </h3>
                             <span id="predCount" class="text-[9px] bg-red-900/30 text-red-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
                         </div>
-                        
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Pole Position (5 pts)</label>
                                 <select id="pred-pole" onchange="window.handleSave('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-red-500 outline-none driver-select transition-all"></select>
                             </div>
-                            
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
                                     <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">P1 (5 pts)</label>
@@ -186,7 +184,6 @@
                                     <select id="pred-p3" onchange="window.updateDynamicLists('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Point Earners (1 pt each)</label>
                                 <div id="pointEarnersContainer" class="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto custom-scrollbar p-1"></div>
@@ -194,7 +191,7 @@
                         </div>
                     </div>
 
-                    <!-- Results Column -->
+                    <!-- Results -->
                     <div class="bg-[#1f1f27] p-5 rounded-2xl border border-gray-800 shadow-lg">
                         <div class="flex justify-between items-center mb-5">
                             <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
@@ -202,13 +199,11 @@
                             </h3>
                             <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
                         </div>
-                        
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Official Pole</label>
                                 <select id="actual-pole" onchange="window.handleSave('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-yellow-500 outline-none driver-select transition-all"></select>
                             </div>
-                            
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
                                     <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Winner</label>
@@ -223,7 +218,6 @@
                                     <select id="actual-p3" onchange="window.updateDynamicLists('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
                                 </div>
                             </div>
-
                             <div>
                                 <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Official P4-P10</label>
                                 <div id="actualTop10Container" class="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto custom-scrollbar p-1"></div>
@@ -263,12 +257,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        /** * CLOUD SYNC SETUP:
-         * To enable syncing across devices on your own website/GitHub:
-         * 1. Create a Firebase project at console.firebase.google.com
-         * 2. Register a Web App and copy your config object.
-         * 3. Paste your config inside the curly braces below.
-         */
+        // Verified User Config
         const manualFirebaseConfig = {
             apiKey: "AIzaSyAHh4H1KwrjPkmxGFu3lFevcBHTpukUaYk",
             authDomain: "predictions-7dca9.firebaseapp.com",
@@ -278,28 +267,21 @@
             appId: "1:1089778409859:web:99aae074c0c3e13b6996b6"
         };
         
-        let firebaseConfig = null;
-        
-        // Priority 1: User's manual config (for GitHub/External use)
+        let finalConfig = null;
         if (manualFirebaseConfig && manualFirebaseConfig.apiKey) {
-            firebaseConfig = manualFirebaseConfig;
-        } 
-        // Priority 2: Environment config (for Canvas Preview)
-        else {
+            finalConfig = manualFirebaseConfig;
+        } else {
             try {
-                if (typeof __firebase_config !== 'undefined') {
-                    firebaseConfig = JSON.parse(__firebase_config);
-                }
-            } catch (e) { console.warn("Firebase Config not found."); }
+                if (typeof __firebase_config !== 'undefined') finalConfig = JSON.parse(__firebase_config);
+            } catch (e) { console.warn("No config detected."); }
         }
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'f1-2026-v1-final';
-        
         let db, auth;
         let isCloudActive = false;
 
-        if (firebaseConfig) {
-            const app = initializeApp(firebaseConfig);
+        if (finalConfig) {
+            const app = initializeApp(finalConfig);
             auth = getAuth(app);
             db = getFirestore(app);
             isCloudActive = true;
@@ -393,6 +375,7 @@
             try {
                 unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', docId), (ds) => {
                     if (ds.exists()) userPredictions = ds.data();
+                    else if (syncKey) userPredictions = {}; // Clear if switching to new empty cloud key
                     refreshUI();
                     if(syncKey) updateSyncUI('success', 'Sync: ' + syncKey);
                 }, (err) => {
@@ -402,6 +385,7 @@
 
                 unsubscribeResults = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', docId), (ds) => {
                     if (ds.exists()) raceResults = ds.data();
+                    else if (syncKey) raceResults = {};
                     refreshUI();
                 });
             } catch (e) {
@@ -413,13 +397,8 @@
 
         window.handleSyncKeyChange = () => {
             const key = document.getElementById('syncKeyInput').value.trim().toUpperCase();
-            if (!key) {
-                localStorage.removeItem('f1_sync_key');
-                if (isCloudActive) setupListeners(null);
-            } else {
-                localStorage.setItem('f1_sync_key', key);
-                if (isCloudActive) setupListeners(key);
-            }
+            // Removed localStorage saving here
+            if (isCloudActive) setupListeners(key || null);
         };
 
         const refreshUI = () => {
@@ -442,7 +421,7 @@
                     others
                 };
                 localStorage.setItem('f1_local_preds', JSON.stringify(userPredictions));
-                if (isCloudActive && currentUser) {
+                if (isCloudActive && currentUser && key !== "DEFAULT_UNSYNCED") {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
                 }
             } else {
@@ -455,7 +434,7 @@
                     others
                 };
                 localStorage.setItem('f1_local_results', JSON.stringify(raceResults));
-                if (isCloudActive && currentUser) {
+                if (isCloudActive && currentUser && key !== "DEFAULT_UNSYNCED") {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
                 }
                 renderRaceList();
@@ -541,17 +520,13 @@
 
             let score = 0; 
             if (p.pole === r.pole && p.pole) score += 5;
-            
             const rp = [r.p1, r.p2, r.p3].filter(x => x);
             if (p.p1 === r.p1 && p.p1) score += 5; 
             else if (rp.includes(p.p1)) score += 2; 
-            
             if (p.p2 === r.p2 && p.p2) score += 5; 
             else if (rp.includes(p.p2)) score += 2;
-            
             if (p.p3 === r.p3 && p.p3) score += 5; 
             else if (rp.includes(p.p3)) score += 2;
-
             const top10 = [...rp, ...(r.others || [])];
             (p.others || []).forEach(o => { 
                 if (top10.includes(o)) score += 1; 
@@ -567,7 +542,7 @@
                 const score = calculateRaceScore(r.id);
                 const isSelected = currentRaceId === r.id;
                 const div = document.createElement('div');
-                div.className = `race-card bg-[#1f1f27] p-4 rounded-xl cursor-pointer border border-gray-800 transition-all ${isSelected ? 'race-card-selected' : ''}`;
+                div.className = `race-card bg-[#1f1f27] p-4 rounded-xl cursor-pointer transition-all ${isSelected ? 'race-card-selected' : ''}`;
                 div.onclick = () => window.selectRace(r.id);
                 div.innerHTML = `
                     <div class="flex justify-between items-center pointer-events-none">
@@ -587,9 +562,7 @@
             let possibleTotal = 0;
             races.forEach(r => {
                 earnedTotal += calculateRaceScore(r.id);
-                if (raceResults[r.id] && raceResults[r.id].p1) {
-                    possibleTotal += 27; 
-                }
+                if (raceResults[r.id] && raceResults[r.id].p1) possibleTotal += 27; 
             });
             const scoreEl = document.getElementById('totalScore');
             if (scoreEl) scoreEl.textContent = `${earnedTotal}/${possibleTotal}`;
@@ -653,7 +626,7 @@
             raceResults = {};
             localStorage.removeItem('f1_local_preds');
             localStorage.removeItem('f1_local_results');
-            if (isCloudActive && currentUser) {
+            if (isCloudActive && currentUser && key !== "DEFAULT_UNSYNCED") {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), {});
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), {});
             }
@@ -679,38 +652,30 @@
                 }
             });
             renderRaceList();
-            const savedKey = localStorage.getItem('f1_sync_key');
-            const keyInput = document.getElementById('syncKeyInput');
-            if (savedKey && keyInput) keyInput.value = savedKey;
+            // Removed automatic sync key retrieval from localStorage here
         };
 
-        // RUN UI
         setupUI();
 
-        // START SESSION
         if (isCloudActive) {
             onAuthStateChanged(auth, async (u) => {
                 currentUser = u;
                 if (!u) {
                     try {
-                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                            await signInWithCustomToken(auth, __initial_auth_token);
-                        } else {
-                            await signInAnonymously(auth);
-                        }
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) await signInWithCustomToken(auth, __initial_auth_token);
+                        else await signInAnonymously(auth);
                     } catch (e) {
                         console.warn("Auth Failed:", e.message);
                         updateSyncUI('error', 'Local Mode Active');
                     }
                 } else {
-                    const savedKey = localStorage.getItem('f1_sync_key');
-                    setupListeners(savedKey);
+                    // Always start in Local Session (null) regardless of past keys
+                    setupListeners(null);
                 }
             });
         } else {
             updateSyncUI('error', 'Local Mode Active');
         }
-
     </script>
 </body>
 </html>
