@@ -200,7 +200,7 @@
                             <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
                                 <i class="fas fa-trophy mr-2"></i> Results
                             </h3>
-                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
+                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
                         </div>
                         
                         <div class="space-y-4">
@@ -263,13 +263,35 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Environment Fallbacks for GitHub/Local Hosting
+        /** * CLOUD SYNC SETUP:
+         * To enable syncing across devices on your own website/GitHub:
+         * 1. Create a Firebase project at console.firebase.google.com
+         * 2. Register a Web App and copy your config object.
+         * 3. Paste your config inside the curly braces below.
+         */
+        const manualFirebaseConfig = {
+            apiKey: "AIzaSyAHh4H1KwrjPkmxGFu3lFevcBHTpukUaYk",
+            authDomain: "predictions-7dca9.firebaseapp.com",
+            projectId: "predictions-7dca9",
+            storageBucket: "predictions-7dca9.firebasestorage.app",
+            messagingSenderId: "1089778409859",
+            appId: "1:1089778409859:web:99aae074c0c3e13b6996b6"
+        };
+        
         let firebaseConfig = null;
-        try {
-            if (typeof __firebase_config !== 'undefined') {
-                firebaseConfig = JSON.parse(__firebase_config);
-            }
-        } catch (e) { console.warn("Firebase Config not found, entering Local Mode."); }
+        
+        // Priority 1: User's manual config (for GitHub/External use)
+        if (manualFirebaseConfig && manualFirebaseConfig.apiKey) {
+            firebaseConfig = manualFirebaseConfig;
+        } 
+        // Priority 2: Environment config (for Canvas Preview)
+        else {
+            try {
+                if (typeof __firebase_config !== 'undefined') {
+                    firebaseConfig = JSON.parse(__firebase_config);
+                }
+            } catch (e) { console.warn("Firebase Config not found."); }
+        }
 
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'f1-2026-v1-final';
         
