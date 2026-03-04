@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>F1 2026 Prediction Hub</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+        
+        :root {
+            --f1-red: #e10600;
+            --f1-dark: #15151e;
+            --f1-card: #1f1f27;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--f1-dark);
+            color: #ffffff;
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        .f1-border-bottom {
+            border-bottom: 4px solid var(--f1-red);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #15151e;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 10px;
+        }
+
+        .race-card {
+            transition: all 0.2s ease;
+            box-sizing: border-box;
+        }
+        
+        /* Fixed: Outline issue where ring went off screen */
+        .race-card-selected {
+            border-color: var(--f1-red) !important;
+            box-shadow: inset 0 0 0 1px var(--f1-red);
+        }
+
+        .hidden-driver {
+            display: none !important;
+        }
+
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-left-color: var(--f1-red);
+            border-radius: 50%;
+            width: 12px;
+            height: 12px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .modal-overlay {
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(8px);
+        }
+
+        /* Prevent italic text clipping */
+        .italic-fix {
+            padding-right: 0.25em;
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-12">
+    <!-- Header -->
+    <header class="bg-[#15151e] shadow-xl sticky top-0 z-40 border-b border-gray-800">
+        <div class="max-w-6xl mx-auto px-4 py-4 flex flex-col items-center gap-4">
+            
+            <div class="flex items-center justify-between w-full">
+                <div class="flex items-center space-x-3">
+                    <!-- F1 Logo Image -->
+                    <div class="shrink-0 h-5 sm:h-7">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/960px-F1.svg.png" 
+                             alt="F1 Logo" 
+                             class="h-full w-auto object-contain">
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-bold uppercase italic tracking-tighter italic-fix whitespace-nowrap">
+                            2026 Prediction Hub
+                        </h1>
+                        <div id="syncIndicator" class="flex items-center space-x-2">
+                            <div class="spinner hidden" id="cloudSpinner"></div>
+                            <span id="syncText" class="text-[8px] text-gray-500 uppercase tracking-widest font-bold">Ready</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-right">
+                    <p class="text-[9px] text-gray-400 uppercase tracking-widest">Season Points</p>
+                    <p id="totalScore" class="text-xl sm:text-2xl font-black text-red-500">0/0</p>
+                </div>
+            </div>
+
+            <!-- Sync Key Input Area -->
+            <div class="w-full flex flex-col sm:flex-row items-center gap-3">
+                <div class="flex items-center bg-[#1f1f27] border border-gray-700 rounded-lg px-3 py-2 w-full">
+                    <i class="fas fa-cloud text-gray-500 mr-2 text-xs"></i>
+                    <input type="text" id="syncKeyInput" placeholder="ENTER SYNC KEY TO LOAD DATA..." 
+                           class="bg-transparent border-none text-[10px] text-white focus:outline-none w-full uppercase tracking-widest font-bold"
+                           onchange="window.handleSyncKeyChange()">
+                </div>
+                <div class="flex space-x-2 shrink-0">
+                    <button onclick="window.generateExportReport()" class="bg-white text-black text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-gray-200 transition-colors">
+                        <i class="fas fa-file-export mr-1"></i> Export
+                    </button>
+                    <button onclick="window.showResetModal()" class="text-[10px] text-gray-400 hover:text-red-500 uppercase transition-colors px-2">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 mt-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- Sidebar: Race List -->
+        <div class="lg:col-span-4 space-y-4">
+            <h2 class="text-[10px] font-bold text-gray-500 uppercase tracking-[0.2em] mb-2 px-1">Official 2026 Calendar</h2>
+            <div id="raceList" class="space-y-3 max-h-[40vh] lg:max-h-[calc(100vh-220px)] overflow-y-auto custom-scrollbar pr-1">
+                <!-- Races injected here -->
+            </div>
+        </div>
+
+        <!-- Main Workspace -->
+        <div class="lg:col-span-8">
+            <div id="emptyState" class="bg-[#1f1f27] rounded-2xl p-12 text-center border border-gray-800 shadow-2xl">
+                <div class="w-16 h-16 bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-flag-checkered text-2xl text-gray-600"></i>
+                </div>
+                <h3 class="text-xl font-bold italic uppercase tracking-tighter">Select a Grand Prix</h3>
+                <p class="text-gray-500 text-sm mt-2 max-w-xs mx-auto italic">Pick a race from the calendar to enter your 2026 predictions or official results.</p>
+            </div>
+
+            <div id="predictionView" class="hidden space-y-6">
+                <!-- Race Header Card -->
+                <div class="bg-[#1f1f27] p-6 rounded-2xl border border-gray-800 f1-border-bottom shadow-xl relative overflow-hidden">
+                    <div class="flex justify-between items-start relative z-10">
+                        <div>
+                            <span id="raceDate" class="text-red-500 text-[10px] font-bold uppercase tracking-widest mb-1 block"></span>
+                            <h2 id="raceTitle" class="text-3xl font-black uppercase italic tracking-tighter leading-tight italic-fix"></h2>
+                            <p id="raceCircuit" class="text-gray-400 text-xs mt-1"></p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Round Pts</span>
+                            <p id="raceScore" class="text-4xl font-black text-white">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Predictions Column -->
+                    <div class="bg-[#1f1f27] p-5 rounded-2xl border border-gray-800 shadow-lg">
+                        <div class="flex justify-between items-center mb-5">
+                            <h3 class="font-bold text-base uppercase flex items-center">
+                                <i class="fas fa-edit mr-2 text-red-500"></i> Predictions
+                            </h3>
+                            <span id="predCount" class="text-[9px] bg-red-900/30 text-red-400 px-2 py-1 rounded font-bold uppercase">0/7 Point Earners</span>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Pole Position (5 pts)</label>
+                                <select id="pred-pole" onchange="window.handleSave('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-red-500 outline-none driver-select transition-all"></select>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">P1 (5 pts)</label>
+                                    <select id="pred-p1" onchange="window.updateDynamicLists('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">P2 (5 pts)</label>
+                                    <select id="pred-p2" onchange="window.updateDynamicLists('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">P3 (5 pts)</label>
+                                    <select id="pred-p3" onchange="window.updateDynamicLists('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Point Earners (1 pt each)</label>
+                                <div id="pointEarnersContainer" class="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto custom-scrollbar p-1"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Results Column -->
+                    <div class="bg-[#1f1f27] p-5 rounded-2xl border border-gray-800 shadow-lg">
+                        <div class="flex justify-between items-center mb-5">
+                            <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
+                                <i class="fas fa-trophy mr-2"></i> Results
+                            </h3>
+                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
+                        </div>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Official Pole</label>
+                                <select id="actual-pole" onchange="window.handleSave('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-yellow-500 outline-none driver-select transition-all"></select>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-2">
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Winner</label>
+                                    <select id="actual-p1" onchange="window.updateDynamicLists('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">P2</label>
+                                    <select id="actual-p2" onchange="window.updateDynamicLists('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
+                                </div>
+                                <div>
+                                    <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">P3</label>
+                                    <select id="actual-p3" onchange="window.updateDynamicLists('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-2.5 text-sm driver-select"></select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Official P4-P10</label>
+                                <div id="actualTop10Container" class="grid grid-cols-1 gap-1.5 max-h-56 overflow-y-auto custom-scrollbar p-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Modals -->
+    <div id="resetModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-[#1f1f27] border border-gray-800 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
+            <h3 class="text-xl font-bold mb-2 uppercase italic tracking-tighter">Reset Data?</h3>
+            <p class="text-gray-400 text-sm mb-6">This will clear your predictions and results for the current sync key.</p>
+            <div class="flex space-x-3">
+                <button onclick="window.hideResetModal()" class="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded font-bold transition-colors">Cancel</button>
+                <button onclick="window.resetData()" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded font-bold transition-colors">Clear</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exportModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-[#1f1f27] border border-gray-800 rounded-2xl p-6 max-w-2xl w-full flex flex-col max-h-[90vh] shadow-2xl">
+            <h3 class="text-lg font-bold mb-2 uppercase italic tracking-tighter text-red-500">2026 Season Report</h3>
+            <textarea id="exportArea" readonly class="flex-1 bg-[#15151e] border border-gray-700 rounded-lg p-4 text-xs font-mono text-gray-300 custom-scrollbar mb-6 focus:outline-none"></textarea>
+            <div class="flex space-x-3">
+                <button onclick="window.hideExportModal()" class="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded font-bold transition-colors">Close</button>
+                <button onclick="window.copyToClipboard()" id="copyBtn" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded font-bold transition-colors">Copy to Doc</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = JSON.parse(__firebase_config);
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'f1-2026-v1-final';
+
+        const drivers = [
+            { id: "ver", name: "Max Verstappen", team: "Red Bull", flag: "🇳🇱" },
+            { id: "law", name: "Liam Lawson", team: "Red Bull", flag: "🇳🇿" },
+            { id: "lec", name: "Charles Leclerc", team: "Ferrari", flag: "🇲🇨" },
+            { id: "ham", name: "Lewis Hamilton", team: "Ferrari", flag: "🇬🇧" },
+            { id: "nor", name: "Lando Norris", team: "McLaren", flag: "🇬🇧" },
+            { id: "pia", name: "Oscar Piastri", team: "McLaren", flag: "🇦🇺" },
+            { id: "rus", name: "George Russell", team: "Mercedes", flag: "🇬🇧" },
+            { id: "ant", name: "Kimi Antonelli", team: "Mercedes", flag: "🇮🇹" },
+            { id: "alo", name: "Fernando Alonso", team: "Aston Martin", flag: "🇪🇸" },
+            { id: "str", name: "Lance Stroll", team: "Aston Martin", flag: "🇨🇦" },
+            { id: "sai", name: "Carlos Sainz", team: "Williams", flag: "🇪🇸" },
+            { id: "alb", name: "Alex Albon", team: "Williams", flag: "🇹🇭" },
+            { id: "hul", name: "Nico Hulkenberg", team: "Audi", flag: "🇩🇪" },
+            { id: "bor", name: "Gabriel Bortoleto", team: "Audi", flag: "🇧🇷" },
+            { id: "gas", name: "Pierre Gasly", team: "Alpine", flag: "🇫🇷" },
+            { id: "doo", name: "Jack Doohan", team: "Alpine", flag: "🇦🇺" },
+            { id: "oco", name: "Esteban Ocon", team: "Haas", flag: "🇫🇷" },
+            { id: "bea", name: "Ollie Bearman", team: "Haas", flag: "🇬🇧" },
+            { id: "tsu", name: "Yuki Tsunoda", team: "RB", flag: "🇯🇵" },
+            { id: "had", name: "Isack Hadjar", team: "RB", flag: "🇫🇷" }
+        ].sort((a,b) => a.name.localeCompare(b.name));
+
+        const races = [
+            { id: 1, country: "Australia", date: "8 March", circuit: "Albert Park Circuit, Melbourne" },
+            { id: 2, country: "China", date: "15 March", circuit: "Shanghai International Circuit" },
+            { id: 3, country: "Japan", date: "29 March", circuit: "Suzuka Circuit" },
+            { id: 4, country: "Bahrain", date: "12 April", circuit: "Bahrain International Circuit" },
+            { id: 5, country: "Saudi Arabia", date: "19 April", circuit: "Jeddah Corniche Circuit" },
+            { id: 6, country: "Miami", date: "3 May", circuit: "Miami International Autodrome" },
+            { id: 7, country: "Canada", date: "24 May", circuit: "Circuit Gilles Villeneuve, Montreal" },
+            { id: 8, country: "Monaco", date: "7 June", circuit: "Circuit de Monaco" },
+            { id: 9, country: "Barcelona-Catalunya", date: "14 June", circuit: "Circuit de Barcelona-Catalunya" },
+            { id: 10, country: "Austria", date: "28 June", circuit: "Red Bull Ring, Spielberg" },
+            { id: 11, country: "Great Britain", date: "5 July", circuit: "Silverstone Circuit" },
+            { id: 12, country: "Belgium", date: "19 July", circuit: "Circuit de Spa-Francorchamps" },
+            { id: 13, country: "Hungary", date: "26 July", circuit: "Hungaroring, Mogyoród" },
+            { id: 14, country: "Netherlands", date: "23 August", circuit: "Circuit Zandvoort" },
+            { id: 15, country: "Italy", date: "6 September", circuit: "Monza Circuit" },
+            { id: 16, country: "Spain", date: "13 September", circuit: "Madrid Street Circuit" },
+            { id: 17, country: "Azerbaijan", date: "26 September", circuit: "Baku City Circuit" },
+            { id: 18, country: "Singapore", date: "11 October", circuit: "Marina Bay Street Circuit" },
+            { id: 19, country: "United States", date: "25 October", circuit: "Circuit of the Americas, Austin" },
+            { id: 20, country: "Mexico City", date: "1 November", circuit: "Autódromo Hermanos Rodríguez" },
+            { id: 21, country: "São Paulo", date: "8 November", circuit: "Interlagos Circuit" },
+            { id: 22, country: "Las Vegas", date: "21 November", circuit: "Las Vegas Strip Circuit" },
+            { id: 23, country: "Qatar", date: "29 November", circuit: "Lusail International Circuit" },
+            { id: 24, country: "Abu Dhabi", date: "6 December", circuit: "Yas Marina Circuit" }
+        ];
+
+        let userPredictions = {};
+        let raceResults = {};
+        let currentRaceId = null;
+        let currentUser = null;
+        let unsubscribePreds = null;
+        let unsubscribeResults = null;
+
+        const updateSyncUI = (status, text) => {
+            const spinner = document.getElementById('cloudSpinner');
+            const label = document.getElementById('syncText');
+            if (!label) return;
+            label.textContent = text;
+            if (status === 'loading') { 
+                spinner?.classList.remove('hidden'); 
+                label.className = "text-[8px] text-gray-500 uppercase font-bold"; 
+            } else if (status === 'success') { 
+                spinner?.classList.add('hidden'); 
+                label.className = "text-[8px] text-green-500 uppercase font-bold"; 
+            } else { 
+                spinner?.classList.add('hidden'); 
+                label.className = "text-[8px] text-red-500 uppercase font-bold"; 
+            }
+        };
+
+        const setupListeners = (syncKey) => {
+            if (unsubscribePreds) unsubscribePreds();
+            if (unsubscribeResults) unsubscribeResults();
+
+            const docId = syncKey || "DEFAULT_UNSYNCED";
+            updateSyncUI('loading', syncKey ? 'Linking ' + syncKey + '...' : 'Saved Locally');
+            
+            try {
+                // seg1: artifacts, seg2: appId, seg3: public, seg4: data, seg5: predictions, seg6: docId (6 segments - correct)
+                unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', docId), (ds) => {
+                    if (ds.exists()) userPredictions = ds.data();
+                    else userPredictions = {};
+                    refreshUI();
+                    if(syncKey) updateSyncUI('success', 'Sync: ' + syncKey);
+                }, (err) => {
+                    console.warn('Sync Error:', err);
+                    updateSyncUI('error', 'Cloud Restricted');
+                });
+
+                unsubscribeResults = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', docId), (ds) => {
+                    if (ds.exists()) raceResults = ds.data();
+                    else raceResults = {};
+                    refreshUI();
+                });
+            } catch (e) {
+                console.error('Session setup error:', e);
+                updateSyncUI('error', 'Local Mode Only');
+                refreshUI();
+            }
+        };
+
+        window.handleSyncKeyChange = () => {
+            const key = document.getElementById('syncKeyInput').value.trim().toUpperCase();
+            if (!key) {
+                localStorage.removeItem('f1_sync_key');
+                setupListeners(null);
+            } else {
+                localStorage.setItem('f1_sync_key', key);
+                setupListeners(key);
+            }
+        };
+
+        const refreshUI = () => {
+            renderRaceList();
+            updateTotalScore();
+            if (currentRaceId) window.selectRace(currentRaceId);
+        };
+
+        window.handleSave = async (type) => {
+            if (!currentUser || !currentRaceId) return;
+            const keyInput = document.getElementById('syncKeyInput');
+            const key = keyInput.value.trim().toUpperCase() || "DEFAULT_UNSYNCED";
+            updateSyncUI('loading', 'Saving...');
+            
+            try {
+                if (type === 'pred') {
+                    const others = drivers.filter(d => document.getElementById(`pred-other-${d.id}`)?.checked).map(d => d.id);
+                    userPredictions[currentRaceId] = {
+                        pole: document.getElementById('pred-pole').value,
+                        p1: document.getElementById('pred-p1').value,
+                        p2: document.getElementById('pred-p2').value,
+                        p3: document.getElementById('pred-p3').value,
+                        others
+                    };
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
+                } else {
+                    const others = drivers.filter(d => document.getElementById(`actual-other-${d.id}`)?.checked).map(d => d.id);
+                    raceResults[currentRaceId] = {
+                        pole: document.getElementById('actual-pole').value,
+                        p1: document.getElementById('actual-p1').value,
+                        p2: document.getElementById('actual-p2').value,
+                        p3: document.getElementById('actual-p3').value,
+                        others
+                    };
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
+                    renderRaceList();
+                }
+                updateSyncUI('success', key !== "DEFAULT_UNSYNCED" ? 'Sync: ' + key : 'Saved Locally');
+                updateRaceScoreUI();
+                updateTotalScore();
+            } catch (err) {
+                console.error(err);
+                updateSyncUI('error', 'Save Failed');
+            }
+        };
+
+        window.updateDynamicLists = (type) => {
+            const p1 = document.getElementById(`${type}-p1`)?.value || "";
+            const p2 = document.getElementById(`${type}-p2`)?.value || "";
+            const p3 = document.getElementById(`${type}-p3`)?.value || "";
+            const podium = [p1, p2, p3];
+            drivers.forEach(d => {
+                const wrap = document.getElementById(`wrapper-${type}-${d.id}`);
+                const cb = document.getElementById(`${type}-other-${d.id}`);
+                if (podium.includes(d.id)) {
+                    wrap?.classList.add('hidden-driver');
+                    if(cb) cb.checked = false;
+                } else { 
+                    wrap?.classList.remove('hidden-driver'); 
+                }
+            });
+            window.handleSave(type);
+        };
+
+        window.handleCheckboxChange = (type, id) => {
+            const count = document.querySelectorAll(`input[id^="${type}-other-"]:checked`).length;
+            if (count > 7) { 
+                document.getElementById(`${type}-other-${id}`).checked = false; 
+                return; 
+            }
+            updateLabels();
+            window.handleSave(type);
+        };
+
+        window.selectRace = (id) => {
+            currentRaceId = id;
+            document.getElementById('emptyState')?.classList.add('hidden');
+            document.getElementById('predictionView')?.classList.remove('hidden');
+            
+            const race = races.find(r => r.id === id);
+            const titleEl = document.getElementById('raceTitle');
+            const dateEl = document.getElementById('raceDate');
+            const circuitEl = document.getElementById('raceCircuit');
+
+            if (titleEl) titleEl.textContent = `${race.country} GP`;
+            if (dateEl) dateEl.textContent = race.date + " 2026";
+            if (circuitEl) circuitEl.textContent = race.circuit;
+            
+            const p = userPredictions[id] || { pole: '', p1: '', p2: '', p3: '', others: [] };
+            ['pole','p1','p2','p3'].forEach(k => {
+                const el = document.getElementById(`pred-${k}`);
+                if (el) el.value = p[k] || "";
+            });
+            drivers.forEach(d => { 
+                const cb = document.getElementById(`pred-other-${d.id}`); 
+                if(cb) cb.checked = (p.others||[]).includes(d.id); 
+            });
+            
+            const r = raceResults[id] || { pole: '', p1: '', p2: '', p3: '', others: [] };
+            ['pole','p1','p2','p3'].forEach(k => {
+                const el = document.getElementById(`actual-${k}`);
+                if (el) el.value = r[k] || "";
+            });
+            drivers.forEach(d => { 
+                const cb = document.getElementById(`actual-other-${d.id}`); 
+                if(cb) cb.checked = (r.others||[]).includes(d.id); 
+            });
+            
+            window.updateDynamicLists('pred');
+            window.updateDynamicLists('actual');
+            updateLabels();
+            updateRaceScoreUI();
+            
+            renderRaceList();
+        };
+
+        const calculateRaceScore = (id) => {
+            const p = userPredictions[id]; 
+            const r = raceResults[id]; 
+            if (!p || !r || !r.p1) return 0;
+
+            let score = 0; 
+            if (p.pole === r.pole && p.pole) score += 5;
+            
+            const rp = [r.p1, r.p2, r.p3].filter(x => x);
+            // P1 Correct
+            if (p.p1 === r.p1 && p.p1) score += 5; 
+            else if (rp.includes(p.p1)) score += 2; // On podium but wrong pos
+            
+            // P2 Correct
+            if (p.p2 === r.p2 && p.p2) score += 5; 
+            else if (rp.includes(p.p2)) score += 2;
+            
+            // P3 Correct
+            if (p.p3 === r.p3 && p.p3) score += 5; 
+            else if (rp.includes(p.p3)) score += 2;
+
+            // Top 10 Earners
+            const top10 = [...rp, ...(r.others || [])];
+            (p.others || []).forEach(o => { 
+                if (top10.includes(o)) score += 1; 
+            });
+            return score;
+        };
+
+        const renderRaceList = () => {
+            const container = document.getElementById('raceList');
+            if (!container) return; 
+            container.innerHTML = '';
+            races.forEach(r => {
+                const score = calculateRaceScore(r.id);
+                const isSelected = currentRaceId === r.id;
+                const div = document.createElement('div');
+                div.className = `race-card bg-[#1f1f27] p-4 rounded-xl cursor-pointer border border-gray-800 transition-all ${isSelected ? 'race-card-selected' : ''}`;
+                div.onclick = () => window.selectRace(r.id);
+                div.innerHTML = `
+                    <div class="flex justify-between items-center pointer-events-none">
+                        <div>
+                            <p class="text-[9px] text-gray-500 uppercase font-bold tracking-widest">${r.date}</p>
+                            <h4 class="font-black text-sm uppercase italic italic-fix leading-tight">${r.country}</h4>
+                        </div>
+                        <div class="text-right text-red-500 font-black text-lg">${score}</div>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        };
+
+        const updateTotalScore = () => {
+            let earnedTotal = 0;
+            let possibleTotal = 0;
+            races.forEach(r => {
+                earnedTotal += calculateRaceScore(r.id);
+                if (raceResults[r.id] && raceResults[r.id].p1) {
+                    possibleTotal += 27; 
+                }
+            });
+            const scoreEl = document.getElementById('totalScore');
+            if (scoreEl) scoreEl.textContent = `${earnedTotal}/${possibleTotal}`;
+        };
+
+        const updateRaceScoreUI = () => {
+            if (!currentRaceId) return;
+            const scoreEl = document.getElementById('raceScore');
+            if (scoreEl) scoreEl.textContent = calculateRaceScore(currentRaceId);
+        };
+
+        const updateLabels = () => {
+            ['pred','actual'].forEach(t => {
+                const count = document.querySelectorAll(`input[id^="${t}-other-"]:checked`).length;
+                const el = document.getElementById(`${t}Count`);
+                if(el) el.textContent = `${count}/7 Selected`;
+            });
+        };
+
+        window.generateExportReport = () => {
+            let scoreText = document.getElementById('totalScore')?.textContent || "0/0";
+            let report = `F1 2026 SEASON PREDICTION REPORT\nGenerated: ${new Date().toLocaleString()}\nSeason Points: ${scoreText}\n\n`;
+            races.forEach(r => {
+                const p = userPredictions[r.id]; 
+                const res = raceResults[r.id];
+                if (p || res) {
+                    report += `ROUND ${r.id}: ${r.country.toUpperCase()}\nScore: ${calculateRaceScore(r.id)} pts\n`;
+                    if(p) report += `  Pred: Pole [${getName(p.pole)}], P1 [${getName(p.p1)}], P2 [${getName(p.p2)}], P3 [${getName(p.p3)}], Points [${p.others.map(getName).join(', ')}]\n`;
+                    if(res) report += `  Real: Pole [${getName(res.pole)}], P1 [${getName(res.p1)}], P2 [${getName(res.p2)}], P3 [${getName(res.p3)}], Points [${res.others.map(getName).join(', ')}]\n`;
+                    report += `--------------------------------------------------\n`;
+                }
+            });
+            const area = document.getElementById('exportArea');
+            if (area) area.value = report;
+            document.getElementById('exportModal')?.classList.remove('hidden');
+        };
+
+        const getName = (id) => drivers.find(d => d.id === id)?.name || "---";
+
+        window.copyToClipboard = () => {
+            const area = document.getElementById('exportArea'); 
+            const btn = document.getElementById('copyBtn');
+            if (area) {
+                area.select(); 
+                document.execCommand('copy');
+                if (btn) {
+                    btn.textContent = "Report Copied!"; 
+                    setTimeout(() => btn.textContent = "Copy to Doc", 2000);
+                }
+            }
+        };
+
+        window.hideExportModal = () => document.getElementById('exportModal')?.classList.add('hidden');
+        window.showResetModal = () => document.getElementById('resetModal')?.classList.remove('hidden');
+        window.hideResetModal = () => document.getElementById('resetModal')?.classList.add('hidden');
+        
+        window.resetData = async () => {
+            const keyInput = document.getElementById('syncKeyInput');
+            const key = keyInput.value.trim().toUpperCase() || "DEFAULT_UNSYNCED";
+            updateSyncUI('loading', 'Resetting...');
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), {});
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), {});
+                location.reload();
+            } catch (e) {
+                updateSyncUI('error', 'Reset Blocked');
+            }
+        };
+
+        const setupUI = () => {
+            document.querySelectorAll('.driver-select').forEach(s => {
+                s.innerHTML = '<option value="">Select Driver</option>';
+                drivers.forEach(d => s.innerHTML += `<option value="${d.id}">${d.flag} ${d.name} (${d.team})</option>`);
+            });
+            ['pred','actual'].forEach(p => {
+                const cont = document.getElementById(p === 'pred' ? 'pointEarnersContainer' : 'actualTop10Container');
+                if (cont) {
+                    cont.innerHTML = ''; // Clear
+                    drivers.forEach(d => {
+                        cont.innerHTML += `
+                            <div id="wrapper-${p}-${d.id}" class="flex items-center space-x-3 text-xs bg-[#15151e] p-3 rounded-lg border border-gray-800 transition-all hover:border-gray-600">
+                                <input type="checkbox" id="${p}-other-${d.id}" onchange="window.handleCheckboxChange('${p}', '${d.id}')" class="accent-red-500 w-4 h-4 cursor-pointer">
+                                <label for="${p}-other-${d.id}" class="truncate w-full cursor-pointer select-none">${d.name}</label>
+                            </div>`;
+                    });
+                }
+            });
+            
+            // Initial render of the calendar list so it shows up even without cloud data
+            renderRaceList();
+            
+            const savedKey = localStorage.getItem('f1_sync_key');
+            const keyInput = document.getElementById('syncKeyInput');
+            if (savedKey && keyInput) {
+                keyInput.value = savedKey;
+            }
+        };
+
+        // Initialize session flow
+        const initSession = async () => {
+            // Auth check with 4s timeout to prevent hang on restricted iframes
+            const authPromise = (async () => {
+                if (!auth.currentUser) {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        return await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        return await signInAnonymously(auth);
+                    }
+                }
+                return auth.currentUser;
+            })();
+
+            const timeoutPromise = new Promise((_, r) => setTimeout(() => r(new Error("Auth Timeout")), 4000));
+
+            try {
+                await Promise.race([authPromise, timeoutPromise]);
+                const savedKey = localStorage.getItem('f1_sync_key');
+                setupListeners(savedKey);
+            } catch (e) {
+                console.warn("Session check issues:", e.message);
+                updateSyncUI('error', 'Saved Locally');
+                refreshUI();
+            }
+        };
+
+        // Init UI immediately
+        setupUI();
+
+        onAuthStateChanged(auth, (u) => {
+            currentUser = u;
+            if (u) {
+                const savedKey = localStorage.getItem('f1_sync_key');
+                setupListeners(savedKey);
+            }
+        });
+
+        // Start
+        initSession();
+
+    </script>
+</body>
+</html>
