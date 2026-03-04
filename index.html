@@ -197,7 +197,7 @@
                             <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
                                 <i class="fas fa-trophy mr-2"></i> Results
                             </h3>
-                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
+                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
                         </div>
                         <div class="space-y-4">
                             <div>
@@ -337,8 +337,9 @@
             { id: 24, country: "Abu Dhabi", date: "6 December", circuit: "Yas Marina Circuit" }
         ];
 
-        let userPredictions = JSON.parse(localStorage.getItem('f1_local_preds') || '{}');
-        let raceResults = JSON.parse(localStorage.getItem('f1_local_results') || '{}');
+        // Start session as completely blank
+        let userPredictions = {};
+        let raceResults = {};
         let currentRaceId = null;
         let currentUser = null;
         let unsubscribePreds = null;
@@ -362,43 +363,51 @@
         };
 
         const setupListeners = (syncKey) => {
-            if (!isCloudActive) {
-                updateSyncUI('error', 'Local Mode Active');
-                return;
-            }
             if (unsubscribePreds) unsubscribePreds();
             if (unsubscribeResults) unsubscribeResults();
 
-            const docId = syncKey || "DEFAULT_UNSYNCED";
-            updateSyncUI('loading', syncKey ? 'Linking ' + syncKey + '...' : 'Saved Locally');
+            // If no key is entered, stay in blank "Local Mode" and do not fetch any default cloud data
+            if (!syncKey) {
+                userPredictions = {};
+                raceResults = {};
+                refreshUI();
+                updateSyncUI('success', 'Local Session');
+                return;
+            }
+
+            if (!isCloudActive) {
+                updateSyncUI('error', 'Sync Blocked');
+                return;
+            }
+
+            updateSyncUI('loading', 'Linking ' + syncKey + '...');
             
             try {
-                unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', docId), (ds) => {
+                unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', syncKey), (ds) => {
                     if (ds.exists()) userPredictions = ds.data();
-                    else if (syncKey) userPredictions = {}; // Clear if switching to new empty cloud key
+                    else userPredictions = {}; // Key exists but has no data yet
                     refreshUI();
-                    if(syncKey) updateSyncUI('success', 'Sync: ' + syncKey);
+                    updateSyncUI('success', 'Sync: ' + syncKey);
                 }, (err) => {
                     console.warn('Sync Error:', err);
                     updateSyncUI('error', 'Sync Blocked');
                 });
 
-                unsubscribeResults = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', docId), (ds) => {
+                unsubscribeResults = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', syncKey), (ds) => {
                     if (ds.exists()) raceResults = ds.data();
-                    else if (syncKey) raceResults = {};
+                    else raceResults = {};
                     refreshUI();
                 });
             } catch (e) {
                 console.error('Session setup error:', e);
-                updateSyncUI('error', 'Local Mode Active');
+                updateSyncUI('error', 'Local Session');
                 refreshUI();
             }
         };
 
         window.handleSyncKeyChange = () => {
             const key = document.getElementById('syncKeyInput').value.trim().toUpperCase();
-            // Removed localStorage saving here
-            if (isCloudActive) setupListeners(key || null);
+            setupListeners(key || null);
         };
 
         const refreshUI = () => {
@@ -409,7 +418,7 @@
 
         window.handleSave = async (type) => {
             const keyInput = document.getElementById('syncKeyInput');
-            const key = keyInput.value.trim().toUpperCase() || "DEFAULT_UNSYNCED";
+            const key = keyInput.value.trim().toUpperCase();
             
             if (type === 'pred') {
                 const others = drivers.filter(d => document.getElementById(`pred-other-${d.id}`)?.checked).map(d => d.id);
@@ -420,8 +429,8 @@
                     p3: document.getElementById('pred-p3').value,
                     others
                 };
-                localStorage.setItem('f1_local_preds', JSON.stringify(userPredictions));
-                if (isCloudActive && currentUser && key !== "DEFAULT_UNSYNCED") {
+                // Only save to cloud if a key is explicitly provided
+                if (isCloudActive && currentUser && key) {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
                 }
             } else {
@@ -433,8 +442,7 @@
                     p3: document.getElementById('actual-p3').value,
                     others
                 };
-                localStorage.setItem('f1_local_results', JSON.stringify(raceResults));
-                if (isCloudActive && currentUser && key !== "DEFAULT_UNSYNCED") {
+                if (isCloudActive && currentUser && key) {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
                 }
                 renderRaceList();
@@ -621,12 +629,10 @@
         
         window.resetData = async () => {
             const keyInput = document.getElementById('syncKeyInput');
-            const key = keyInput.value.trim().toUpperCase() || "DEFAULT_UNSYNCED";
+            const key = keyInput.value.trim().toUpperCase();
             userPredictions = {};
             raceResults = {};
-            localStorage.removeItem('f1_local_preds');
-            localStorage.removeItem('f1_local_results');
-            if (isCloudActive && currentUser && key !== "DEFAULT_UNSYNCED") {
+            if (isCloudActive && currentUser && key) {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), {});
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), {});
             }
@@ -652,7 +658,6 @@
                 }
             });
             renderRaceList();
-            // Removed automatic sync key retrieval from localStorage here
         };
 
         setupUI();
@@ -666,15 +671,15 @@
                         else await signInAnonymously(auth);
                     } catch (e) {
                         console.warn("Auth Failed:", e.message);
-                        updateSyncUI('error', 'Local Mode Active');
+                        updateSyncUI('error', 'Sync Blocked');
                     }
                 } else {
-                    // Always start in Local Session (null) regardless of past keys
+                    // Force the session to start as blank (null key) on load
                     setupListeners(null);
                 }
             });
         } else {
-            updateSyncUI('error', 'Local Mode Active');
+            updateSyncUI('error', 'Sync Blocked');
         }
     </script>
 </body>
