@@ -43,7 +43,6 @@
             box-sizing: border-box;
         }
         
-        /* Fixed: Outline issue where ring went off screen */
         .race-card-selected {
             border-color: var(--f1-red) !important;
             box-shadow: inset 0 0 0 1px var(--f1-red);
@@ -68,7 +67,6 @@
             backdrop-filter: blur(8px);
         }
 
-        /* Prevent italic text clipping */
         .italic-fix {
             padding-right: 0.25em;
         }
@@ -81,7 +79,6 @@
             
             <div class="flex items-center justify-between w-full">
                 <div class="flex items-center space-x-3">
-                    <!-- F1 Logo Image -->
                     <div class="shrink-0 h-5 sm:h-7">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/F1.svg/960px-F1.svg.png" 
                              alt="F1 Logo" 
@@ -166,7 +163,7 @@
                             <h3 class="font-bold text-base uppercase flex items-center">
                                 <i class="fas fa-edit mr-2 text-red-500"></i> Predictions
                             </h3>
-                            <span id="predCount" class="text-[9px] bg-red-900/30 text-red-400 px-2 py-1 rounded font-bold uppercase">0/7 Point Earners</span>
+                            <span id="predCount" class="text-[9px] bg-red-900/30 text-red-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
                         </div>
                         
                         <div class="space-y-4">
@@ -203,7 +200,7 @@
                             <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
                                 <i class="fas fa-trophy mr-2"></i> Results
                             </h3>
-                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
+                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
                         </div>
                         
                         <div class="space-y-4">
@@ -261,17 +258,30 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = JSON.parse(__firebase_config);
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
+        // Environment Fallbacks for GitHub/Local Hosting
+        let firebaseConfig = null;
+        try {
+            if (typeof __firebase_config !== 'undefined') {
+                firebaseConfig = JSON.parse(__firebase_config);
+            }
+        } catch (e) { console.warn("Firebase Config not found, entering Local Mode."); }
+
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'f1-2026-v1-final';
+        
+        let db, auth;
+        let isCloudActive = false;
+
+        if (firebaseConfig) {
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+            isCloudActive = true;
+        }
 
         const drivers = [
             { id: "ver", name: "Max Verstappen", team: "Red Bull", flag: "🇳🇱" },
@@ -323,8 +333,8 @@
             { id: 24, country: "Abu Dhabi", date: "6 December", circuit: "Yas Marina Circuit" }
         ];
 
-        let userPredictions = {};
-        let raceResults = {};
+        let userPredictions = JSON.parse(localStorage.getItem('f1_local_preds') || '{}');
+        let raceResults = JSON.parse(localStorage.getItem('f1_local_results') || '{}');
         let currentRaceId = null;
         let currentUser = null;
         let unsubscribePreds = null;
@@ -348,6 +358,10 @@
         };
 
         const setupListeners = (syncKey) => {
+            if (!isCloudActive) {
+                updateSyncUI('error', 'Local Mode Active');
+                return;
+            }
             if (unsubscribePreds) unsubscribePreds();
             if (unsubscribeResults) unsubscribeResults();
 
@@ -355,25 +369,22 @@
             updateSyncUI('loading', syncKey ? 'Linking ' + syncKey + '...' : 'Saved Locally');
             
             try {
-                // seg1: artifacts, seg2: appId, seg3: public, seg4: data, seg5: predictions, seg6: docId (6 segments - correct)
                 unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', docId), (ds) => {
                     if (ds.exists()) userPredictions = ds.data();
-                    else userPredictions = {};
                     refreshUI();
                     if(syncKey) updateSyncUI('success', 'Sync: ' + syncKey);
                 }, (err) => {
                     console.warn('Sync Error:', err);
-                    updateSyncUI('error', 'Cloud Restricted');
+                    updateSyncUI('error', 'Sync Blocked');
                 });
 
                 unsubscribeResults = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', docId), (ds) => {
                     if (ds.exists()) raceResults = ds.data();
-                    else raceResults = {};
                     refreshUI();
                 });
             } catch (e) {
                 console.error('Session setup error:', e);
-                updateSyncUI('error', 'Local Mode Only');
+                updateSyncUI('error', 'Local Mode Active');
                 refreshUI();
             }
         };
@@ -382,10 +393,10 @@
             const key = document.getElementById('syncKeyInput').value.trim().toUpperCase();
             if (!key) {
                 localStorage.removeItem('f1_sync_key');
-                setupListeners(null);
+                if (isCloudActive) setupListeners(null);
             } else {
                 localStorage.setItem('f1_sync_key', key);
-                setupListeners(key);
+                if (isCloudActive) setupListeners(key);
             }
         };
 
@@ -396,41 +407,39 @@
         };
 
         window.handleSave = async (type) => {
-            if (!currentUser || !currentRaceId) return;
             const keyInput = document.getElementById('syncKeyInput');
             const key = keyInput.value.trim().toUpperCase() || "DEFAULT_UNSYNCED";
-            updateSyncUI('loading', 'Saving...');
             
-            try {
-                if (type === 'pred') {
-                    const others = drivers.filter(d => document.getElementById(`pred-other-${d.id}`)?.checked).map(d => d.id);
-                    userPredictions[currentRaceId] = {
-                        pole: document.getElementById('pred-pole').value,
-                        p1: document.getElementById('pred-p1').value,
-                        p2: document.getElementById('pred-p2').value,
-                        p3: document.getElementById('pred-p3').value,
-                        others
-                    };
+            if (type === 'pred') {
+                const others = drivers.filter(d => document.getElementById(`pred-other-${d.id}`)?.checked).map(d => d.id);
+                userPredictions[currentRaceId] = {
+                    pole: document.getElementById('pred-pole').value,
+                    p1: document.getElementById('pred-p1').value,
+                    p2: document.getElementById('pred-p2').value,
+                    p3: document.getElementById('pred-p3').value,
+                    others
+                };
+                localStorage.setItem('f1_local_preds', JSON.stringify(userPredictions));
+                if (isCloudActive && currentUser) {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
-                } else {
-                    const others = drivers.filter(d => document.getElementById(`actual-other-${d.id}`)?.checked).map(d => d.id);
-                    raceResults[currentRaceId] = {
-                        pole: document.getElementById('actual-pole').value,
-                        p1: document.getElementById('actual-p1').value,
-                        p2: document.getElementById('actual-p2').value,
-                        p3: document.getElementById('actual-p3').value,
-                        others
-                    };
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
-                    renderRaceList();
                 }
-                updateSyncUI('success', key !== "DEFAULT_UNSYNCED" ? 'Sync: ' + key : 'Saved Locally');
-                updateRaceScoreUI();
-                updateTotalScore();
-            } catch (err) {
-                console.error(err);
-                updateSyncUI('error', 'Save Failed');
+            } else {
+                const others = drivers.filter(d => document.getElementById(`actual-other-${d.id}`)?.checked).map(d => d.id);
+                raceResults[currentRaceId] = {
+                    pole: document.getElementById('actual-pole').value,
+                    p1: document.getElementById('actual-p1').value,
+                    p2: document.getElementById('actual-p2').value,
+                    p3: document.getElementById('actual-p3').value,
+                    others
+                };
+                localStorage.setItem('f1_local_results', JSON.stringify(raceResults));
+                if (isCloudActive && currentUser) {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
+                }
+                renderRaceList();
             }
+            updateRaceScoreUI();
+            updateTotalScore();
         };
 
         window.updateDynamicLists = (type) => {
@@ -512,19 +521,15 @@
             if (p.pole === r.pole && p.pole) score += 5;
             
             const rp = [r.p1, r.p2, r.p3].filter(x => x);
-            // P1 Correct
             if (p.p1 === r.p1 && p.p1) score += 5; 
-            else if (rp.includes(p.p1)) score += 2; // On podium but wrong pos
+            else if (rp.includes(p.p1)) score += 2; 
             
-            // P2 Correct
             if (p.p2 === r.p2 && p.p2) score += 5; 
             else if (rp.includes(p.p2)) score += 2;
             
-            // P3 Correct
             if (p.p3 === r.p3 && p.p3) score += 5; 
             else if (rp.includes(p.p3)) score += 2;
 
-            // Top 10 Earners
             const top10 = [...rp, ...(r.others || [])];
             (p.others || []).forEach(o => { 
                 if (top10.includes(o)) score += 1; 
@@ -622,14 +627,15 @@
         window.resetData = async () => {
             const keyInput = document.getElementById('syncKeyInput');
             const key = keyInput.value.trim().toUpperCase() || "DEFAULT_UNSYNCED";
-            updateSyncUI('loading', 'Resetting...');
-            try {
+            userPredictions = {};
+            raceResults = {};
+            localStorage.removeItem('f1_local_preds');
+            localStorage.removeItem('f1_local_results');
+            if (isCloudActive && currentUser) {
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), {});
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), {});
-                location.reload();
-            } catch (e) {
-                updateSyncUI('error', 'Reset Blocked');
             }
+            location.reload();
         };
 
         const setupUI = () => {
@@ -640,7 +646,7 @@
             ['pred','actual'].forEach(p => {
                 const cont = document.getElementById(p === 'pred' ? 'pointEarnersContainer' : 'actualTop10Container');
                 if (cont) {
-                    cont.innerHTML = ''; // Clear
+                    cont.innerHTML = '';
                     drivers.forEach(d => {
                         cont.innerHTML += `
                             <div id="wrapper-${p}-${d.id}" class="flex items-center space-x-3 text-xs bg-[#15151e] p-3 rounded-lg border border-gray-800 transition-all hover:border-gray-600">
@@ -650,57 +656,38 @@
                     });
                 }
             });
-            
-            // Initial render of the calendar list so it shows up even without cloud data
             renderRaceList();
-            
             const savedKey = localStorage.getItem('f1_sync_key');
             const keyInput = document.getElementById('syncKeyInput');
-            if (savedKey && keyInput) {
-                keyInput.value = savedKey;
-            }
+            if (savedKey && keyInput) keyInput.value = savedKey;
         };
 
-        // Initialize session flow
-        const initSession = async () => {
-            // Auth check with 4s timeout to prevent hang on restricted iframes
-            const authPromise = (async () => {
-                if (!auth.currentUser) {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        return await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        return await signInAnonymously(auth);
-                    }
-                }
-                return auth.currentUser;
-            })();
-
-            const timeoutPromise = new Promise((_, r) => setTimeout(() => r(new Error("Auth Timeout")), 4000));
-
-            try {
-                await Promise.race([authPromise, timeoutPromise]);
-                const savedKey = localStorage.getItem('f1_sync_key');
-                setupListeners(savedKey);
-            } catch (e) {
-                console.warn("Session check issues:", e.message);
-                updateSyncUI('error', 'Saved Locally');
-                refreshUI();
-            }
-        };
-
-        // Init UI immediately
+        // RUN UI
         setupUI();
 
-        onAuthStateChanged(auth, (u) => {
-            currentUser = u;
-            if (u) {
-                const savedKey = localStorage.getItem('f1_sync_key');
-                setupListeners(savedKey);
-            }
-        });
-
-        // Start
-        initSession();
+        // START SESSION
+        if (isCloudActive) {
+            onAuthStateChanged(auth, async (u) => {
+                currentUser = u;
+                if (!u) {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await signInWithCustomToken(auth, __initial_auth_token);
+                        } else {
+                            await signInAnonymously(auth);
+                        }
+                    } catch (e) {
+                        console.warn("Auth Failed:", e.message);
+                        updateSyncUI('error', 'Local Mode Active');
+                    }
+                } else {
+                    const savedKey = localStorage.getItem('f1_sync_key');
+                    setupListeners(savedKey);
+                }
+            });
+        } else {
+            updateSyncUI('error', 'Local Mode Active');
+        }
 
     </script>
 </body>
