@@ -291,27 +291,30 @@
             isCloudActive = true;
         }
 
+        // Updated Driver List based on 2026 Season Grid Image
         const drivers = [
-            { id: "ver", name: "Max Verstappen", team: "Red Bull", flag: "🇳🇱" },
-            { id: "law", name: "Liam Lawson", team: "Red Bull", flag: "🇳🇿" },
-            { id: "lec", name: "Charles Leclerc", team: "Ferrari", flag: "🇲🇨" },
-            { id: "ham", name: "Lewis Hamilton", team: "Ferrari", flag: "🇬🇧" },
-            { id: "nor", name: "Lando Norris", team: "McLaren", flag: "🇬🇧" },
-            { id: "pia", name: "Oscar Piastri", team: "McLaren", flag: "🇦🇺" },
-            { id: "rus", name: "George Russell", team: "Mercedes", flag: "🇬🇧" },
-            { id: "ant", name: "Kimi Antonelli", team: "Mercedes", flag: "🇮🇹" },
+            { id: "gas", name: "Pierre Gasly", team: "Alpine", flag: "🇫🇷" },
+            { id: "col", name: "Franco Colapinto", team: "Alpine", flag: "🇦🇷" },
             { id: "alo", name: "Fernando Alonso", team: "Aston Martin", flag: "🇪🇸" },
             { id: "str", name: "Lance Stroll", team: "Aston Martin", flag: "🇨🇦" },
-            { id: "sai", name: "Carlos Sainz", team: "Williams", flag: "🇪🇸" },
-            { id: "alb", name: "Alex Albon", team: "Williams", flag: "🇹🇭" },
-            { id: "hul", name: "Nico Hulkenberg", team: "Audi", flag: "🇩🇪" },
+            { id: "alb", name: "Alexander Albon", team: "Williams", flag: "🇹🇭" },
+            { id: "sai", name: "Carlos Sainz Jr.", team: "Williams", flag: "🇪🇸" },
             { id: "bor", name: "Gabriel Bortoleto", team: "Audi", flag: "🇧🇷" },
-            { id: "gas", name: "Pierre Gasly", team: "Alpine", flag: "🇫🇷" },
-            { id: "doo", name: "Jack Doohan", team: "Alpine", flag: "🇦🇺" },
+            { id: "hul", name: "Nico Hulkenberg", team: "Audi", flag: "🇩🇪" },
+            { id: "per", name: "Sergio Perez", team: "Cadillac", flag: "🇲🇽" },
+            { id: "bot", name: "Valtteri Bottas", team: "Cadillac", flag: "🇫🇮" },
+            { id: "lec", name: "Charles Leclerc", team: "Ferrari", flag: "🇲🇨" },
+            { id: "ham", name: "Lewis Hamilton", team: "Ferrari", flag: "🇬🇧" },
             { id: "oco", name: "Esteban Ocon", team: "Haas", flag: "🇫🇷" },
-            { id: "bea", name: "Ollie Bearman", team: "Haas", flag: "🇬🇧" },
-            { id: "tsu", name: "Yuki Tsunoda", team: "RB", flag: "🇯🇵" },
-            { id: "had", name: "Isack Hadjar", team: "RB", flag: "🇫🇷" }
+            { id: "bea", name: "Oliver Bearman", team: "Haas", flag: "🇬🇧" },
+            { id: "nor", name: "Lando Norris", team: "McLaren", flag: "🇬🇧" },
+            { id: "pia", name: "Oscar Piastri", team: "McLaren", flag: "🇦🇺" },
+            { id: "ant", name: "Kimi Antonelli", team: "Mercedes", flag: "🇮🇹" },
+            { id: "rus", name: "George Russell", team: "Mercedes", flag: "🇬🇧" },
+            { id: "law", name: "Liam Lawson", team: "Racing Bulls", flag: "🇳🇿" },
+            { id: "lin", name: "Arvid Lindblad", team: "Racing Bulls", flag: "🇬🇧" },
+            { id: "ver", name: "Max Verstappen", team: "Red Bull", flag: "🇳🇱" },
+            { id: "had", name: "Isack Hadjar", team: "Red Bull", flag: "🇫🇷" }
         ].sort((a,b) => a.name.localeCompare(b.name));
 
         const races = [
