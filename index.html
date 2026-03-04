@@ -46,7 +46,7 @@
         
         .race-card-selected {
             border-color: var(--f1-red) !important;
-            box-shadow: 0 0 0 1px var(--f1-red);
+            box-shadow: inset 0 0 0 1px var(--f1-red);
         }
 
         .hidden-driver {
@@ -112,6 +112,10 @@
                            onchange="window.handleSyncKeyChange()">
                 </div>
                 <div class="flex space-x-2 shrink-0 w-full sm:w-auto">
+                    <!-- MANUAL SYNC BUTTON -->
+                    <button id="saveBtn" onclick="window.syncToCloud()" class="flex-1 bg-red-600 text-white text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-red-500 transition-all opacity-50 cursor-not-allowed" disabled>
+                        <i class="fas fa-save mr-1"></i> Sync to Cloud
+                    </button>
                     <button onclick="window.generateExportReport()" class="flex-1 bg-white text-black text-[10px] px-4 py-2 rounded font-bold uppercase hover:bg-gray-200 transition-colors">
                         <i class="fas fa-file-export mr-1"></i> Export
                     </button>
@@ -157,7 +161,7 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Predictions -->
+                    <!-- Predictions Column -->
                     <div class="bg-[#1f1f27] p-5 rounded-2xl border border-gray-800 shadow-lg">
                         <div class="flex justify-between items-center mb-5">
                             <h3 class="font-bold text-base uppercase flex items-center">
@@ -168,7 +172,7 @@
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Pole Position (5 pts)</label>
-                                <select id="pred-pole" onchange="window.handleSave('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-red-500 outline-none driver-select transition-all"></select>
+                                <select id="pred-pole" onchange="window.handleLocalUpdate('pred')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-red-500 outline-none driver-select transition-all"></select>
                             </div>
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
@@ -191,18 +195,18 @@
                         </div>
                     </div>
 
-                    <!-- Results -->
+                    <!-- Results Column -->
                     <div class="bg-[#1f1f27] p-5 rounded-2xl border border-gray-800 shadow-lg">
                         <div class="flex justify-between items-center mb-5">
                             <h3 class="font-bold text-base uppercase flex items-center text-yellow-500">
                                 <i class="fas fa-trophy mr-2"></i> Results
                             </h3>
-                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Others</span>
+                            <span id="actualCount" class="text-[9px] bg-yellow-900/30 text-yellow-400 px-2 py-1 rounded font-bold uppercase">0/7 Selected</span>
                         </div>
                         <div class="space-y-4">
                             <div>
                                 <label class="block text-[9px] text-gray-500 uppercase font-bold tracking-widest mb-1.5 px-1">Official Pole</label>
-                                <select id="actual-pole" onchange="window.handleSave('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-yellow-500 outline-none driver-select transition-all"></select>
+                                <select id="actual-pole" onchange="window.handleLocalUpdate('actual')" class="w-full bg-[#15151e] border border-gray-700 rounded-lg p-3 text-sm focus:border-yellow-500 outline-none driver-select transition-all"></select>
                             </div>
                             <div class="grid grid-cols-3 gap-2">
                                 <div>
@@ -232,8 +236,8 @@
     <!-- Modals -->
     <div id="resetModal" class="fixed inset-0 z-[60] hidden flex items-center justify-center p-4 modal-overlay">
         <div class="bg-[#1f1f27] border border-gray-800 rounded-2xl p-8 max-w-sm w-full text-center shadow-2xl">
-            <h3 class="text-xl font-bold mb-2 uppercase italic tracking-tighter">Reset Data?</h3>
-            <p class="text-gray-400 text-sm mb-6">This will clear your predictions and results for the current sync key.</p>
+            <h3 class="text-xl font-bold mb-2 uppercase italic tracking-tighter">Reset All?</h3>
+            <p class="text-gray-400 text-sm mb-6">This will clear your current selections and permanently remove data from this cloud key if synced.</p>
             <div class="flex space-x-3">
                 <button onclick="window.hideResetModal()" class="flex-1 px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded font-bold transition-colors">Cancel</button>
                 <button onclick="window.resetData()" class="flex-1 px-4 py-2 bg-red-600 hover:bg-red-500 rounded font-bold transition-colors">Clear</button>
@@ -257,7 +261,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Verified User Config
+        // Your verified Firebase Config
         const manualFirebaseConfig = {
             apiKey: "AIzaSyAHh4H1KwrjPkmxGFu3lFevcBHTpukUaYk",
             authDomain: "predictions-7dca9.firebaseapp.com",
@@ -337,7 +341,6 @@
             { id: 24, country: "Abu Dhabi", date: "6 December", circuit: "Yas Marina Circuit" }
         ];
 
-        // Start session as completely blank
         let userPredictions = {};
         let raceResults = {};
         let currentRaceId = null;
@@ -348,17 +351,27 @@
         const updateSyncUI = (status, text) => {
             const spinner = document.getElementById('cloudSpinner');
             const label = document.getElementById('syncText');
+            const saveBtn = document.getElementById('saveBtn');
             if (!label) return;
             label.textContent = text;
+
             if (status === 'loading') { 
                 spinner?.classList.remove('hidden'); 
                 label.className = "text-[8px] text-gray-500 uppercase font-bold"; 
             } else if (status === 'success') { 
                 spinner?.classList.add('hidden'); 
                 label.className = "text-[8px] text-green-500 uppercase font-bold"; 
+                if (saveBtn) {
+                    saveBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                    saveBtn.disabled = false;
+                }
             } else { 
                 spinner?.classList.add('hidden'); 
                 label.className = "text-[8px] text-red-500 uppercase font-bold"; 
+                if (saveBtn) {
+                    saveBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                    saveBtn.disabled = true;
+                }
             }
         };
 
@@ -366,15 +379,13 @@
             if (unsubscribePreds) unsubscribePreds();
             if (unsubscribeResults) unsubscribeResults();
 
-            // CRITICAL: Immediately wipe all data from memory when switching keys.
-            // This ensures if a key doesn't exist, the UI will be blank.
+            // Clear UI immediately when key changes
             userPredictions = {};
             raceResults = {};
             refreshUI();
 
-            // If no key is entered, stay in blank state and do not fetch cloud data
             if (!syncKey) {
-                updateSyncUI('success', 'Local Session');
+                updateSyncUI('ready', 'Ready');
                 return;
             }
 
@@ -387,7 +398,6 @@
             
             try {
                 unsubscribePreds = onSnapshot(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', syncKey), (ds) => {
-                    // If doc exists, load it. If not, it remains wiped (blank) from the setup above.
                     if (ds.exists()) {
                         userPredictions = ds.data();
                         refreshUI();
@@ -412,7 +422,7 @@
                 });
             } catch (e) {
                 console.error('Session setup error:', e);
-                updateSyncUI('error', 'Local Session');
+                updateSyncUI('error', 'Sync Error');
                 refreshUI();
             }
         };
@@ -428,9 +438,37 @@
             if (currentRaceId) window.selectRace(currentRaceId);
         };
 
-        window.handleSave = async (type) => {
-            const keyInput = document.getElementById('syncKeyInput');
-            const key = keyInput.value.trim().toUpperCase();
+        // MANUAL CLOUD SYNC
+        window.syncToCloud = async () => {
+            const key = document.getElementById('syncKeyInput').value.trim().toUpperCase();
+            if (!key || !isCloudActive || !currentUser) return;
+
+            const btn = document.getElementById('saveBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<i class="fas fa-spinner fa-spin mr-1"></i> Syncing...`;
+            btn.disabled = true;
+
+            try {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
+                
+                btn.innerHTML = `<i class="fas fa-check mr-1"></i> Data Saved`;
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 2000);
+            } catch (err) {
+                console.error(err);
+                btn.innerHTML = `<i class="fas fa-exclamation-triangle mr-1"></i> Failed`;
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            }
+        };
+
+        window.handleLocalUpdate = (type) => {
+            if (!currentRaceId) return;
             
             if (type === 'pred') {
                 const others = drivers.filter(d => document.getElementById(`pred-other-${d.id}`)?.checked).map(d => d.id);
@@ -439,12 +477,8 @@
                     p1: document.getElementById('pred-p1').value,
                     p2: document.getElementById('pred-p2').value,
                     p3: document.getElementById('pred-p3').value,
-                    others
+                    others: others
                 };
-                // Only save to cloud if a key is explicitly provided
-                if (isCloudActive && currentUser && key) {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'predictions', key), userPredictions);
-                }
             } else {
                 const others = drivers.filter(d => document.getElementById(`actual-other-${d.id}`)?.checked).map(d => d.id);
                 raceResults[currentRaceId] = {
@@ -452,11 +486,8 @@
                     p1: document.getElementById('actual-p1').value,
                     p2: document.getElementById('actual-p2').value,
                     p3: document.getElementById('actual-p3').value,
-                    others
+                    others: others
                 };
-                if (isCloudActive && currentUser && key) {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'actual_results', key), raceResults);
-                }
                 renderRaceList();
             }
             updateRaceScoreUI();
@@ -478,7 +509,7 @@
                     wrap?.classList.remove('hidden-driver'); 
                 }
             });
-            window.handleSave(type);
+            window.handleLocalUpdate(type);
         };
 
         window.handleCheckboxChange = (type, id) => {
@@ -488,7 +519,7 @@
                 return; 
             }
             updateLabels();
-            window.handleSave(type);
+            window.handleLocalUpdate(type);
         };
 
         window.selectRace = (id) => {
@@ -685,7 +716,6 @@
                         updateSyncUI('error', 'Sync Blocked');
                     }
                 } else {
-                    // Force the session to start as blank on load
                     setupListeners(null);
                 }
             });
